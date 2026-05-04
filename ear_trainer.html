@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Ear Trainer</title>
+<style>
+    body {
+        font-family: Arial;
+        text-align: center;
+        margin: 20px;
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    .controls, .buttons {
+        margin: 15px;
+    }
+
+    button {
+        padding: 10px 15px;
+        margin: 5px;
+        font-size: 16px;
+    }
+
+    select {
+        padding: 5px;
+        font-size: 16px;
+    }
+
+    #result {
+        font-size: 20px;
+        margin: 10px;
+    }
+
+    #score {
+        font-size: 18px;
+        margin: 10px;
+    }
+</style>
+</head>
+<body>
+
+<h1>🎧 Ear Trainer</h1>
+
+<div class="controls">
+    Тональность:
+    <select id="root"></select>
+
+    Лад:
+    <select id="scale">
+        <option value="major">major</option>
+        <option value="minor">minor</option>
+    </select>
+</div>
+
+<div class="buttons">
+    <button onclick="playTonic()">▶️ Тоника</button>
+    <button onclick="newNote()">🎮 Новая нота</button>
+    <button onclick="replay()">🔁 Повторить</button>
+</div>
+
+<div id="result">Нажми "Новая нота"</div>
+<div id="score">0 / 0</div>
+
+<div class="buttons" id="answers"></div>
+
+<script>
+const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const SOLFEGE = ["do","re","mi","fa","sol","la","ti"];
+
+const MAJOR = [0,2,4,5,7,9,11];
+const MINOR = [0,2,3,5,7,8,10];
+
+let currentNote = null;
+let total = 0;
+let correct = 0;
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playFreq(freq){
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.frequency.value = freq;
+    osc.type = "sine";
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+    osc.stop(audioCtx.currentTime + 0.5);
+}
+
+function getFreq(note){
+    const A4 = 440;
+    const index = NOTES.indexOf(note);
+    const semitone = index - 9;
+    return A4 * Math.pow(2, semitone/12);
+}
+
+function buildScale(){
+    const root = document.getElementById("root").value;
+    const type = document.getElementById("scale").value;
+
+    const rootIndex = NOTES.indexOf(root);
+    const steps = type === "major" ? MAJOR : MINOR;
+
+    return steps.map(s => NOTES[(rootIndex + s) % 12]);
+}
+
+function playTonic(){
+    const scale = buildScale();
+    const triad = [scale[0], scale[2], scale[4]];
+    const pattern = [triad[0], triad[1], triad[2], triad[1], triad[0]];
+
+    let i = 0;
+    function playNext(){
+        if(i >= pattern.length) return;
+        playFreq(getFreq(pattern[i]));
+        i++;
+        setTimeout(playNext, 500);
+    }
+    playNext();
+}
+
+function newNote(){
+    const scale = buildScale();
+    currentNote = scale[Math.floor(Math.random()*scale.length)];
+
+    total++;
+    updateScore();
+
+    playFreq(getFreq(currentNote));
+    document.getElementById("result").innerText = "Что это за ступень?";
+}
+
+function replay(){
+    if(currentNote){
+        playFreq(getFreq(currentNote));
+    }
+}
+
+function checkAnswer(index){
+    if(!currentNote) return;
+
+    const scale = buildScale();
+    const correctIndex = scale.indexOf(currentNote);
+
+    if(index === correctIndex){
+        correct++;
+        document.getElementById("result").innerText = "✅ Верно!";
+    } else {
+        document.getElementById("result").innerText =
+            "❌ Неверно. Это было " + SOLFEGE[correctIndex];
+    }
+
+    updateScore();
+}
+
+function updateScore(){
+    let text = total === 0 ? "0 / 0" :
+        `${correct} / ${total} (${Math.floor(correct/total*100)}%)`;
+
+    document.getElementById("score").innerText = text;
+}
+
+// --- UI init ---
+const rootSelect = document.getElementById("root");
+NOTES.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n;
+    opt.innerText = n;
+    rootSelect.appendChild(opt);
+});
+rootSelect.value = "C";
+
+const answersDiv = document.getElementById("answers");
+SOLFEGE.forEach((name, i) => {
+    const btn = document.createElement("button");
+    btn.innerText = name;
+    btn.onclick = () => checkAnswer(i);
+    answersDiv.appendChild(btn);
+});
+</script>
+
+</body>
+</html>
