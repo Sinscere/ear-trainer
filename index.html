@@ -3,189 +3,396 @@
 <head>
 <meta charset="UTF-8">
 <title>Ear Trainer</title>
+
 <style>
-    body {
+    body{
         font-family: Arial;
-        text-align: center;
-        margin: 20px;
+        text-align:center;
+        margin:20px;
     }
 
-    h1 {
-        margin-bottom: 10px;
+    button{
+        padding:10px 15px;
+        margin:5px;
+        font-size:16px;
     }
 
-    .controls, .buttons {
-        margin: 15px;
+    select{
+        padding:5px;
+        font-size:16px;
     }
 
-    button {
-        padding: 10px 15px;
-        margin: 5px;
-        font-size: 16px;
+    .section{
+        margin:15px;
     }
 
-    select {
-        padding: 5px;
-        font-size: 16px;
+    #result{
+        font-size:22px;
+        margin:15px;
     }
 
-    #result {
-        font-size: 20px;
-        margin: 10px;
+    #score{
+        font-size:18px;
+        margin:10px;
     }
 
-    #score {
-        font-size: 18px;
-        margin: 10px;
+    #answers{
+        max-width:900px;
+        margin:auto;
     }
 </style>
 </head>
+
 <body>
 
 <h1>🎧 Ear Trainer</h1>
 
-<div class="controls">
+<div class="section">
+
     Тональность:
+
     <select id="root"></select>
 
     Лад:
+
     <select id="scale">
         <option value="major">major</option>
         <option value="minor">minor</option>
     </select>
+
 </div>
 
-<div class="buttons">
+<div class="section">
+
+    <label>
+        <input type="checkbox" id="chromaticToggle">
+        Хроматический режим
+    </label>
+
+</div>
+
+<div class="section">
+
     <button onclick="playTonic()">▶️ Тоника</button>
     <button onclick="newNote()">🎮 Новая нота</button>
     <button onclick="replay()">🔁 Повторить</button>
+
 </div>
 
-<div id="result">Нажми "Новая нота"</div>
-<div id="score">0 / 0</div>
+<div id="result">
+    Нажми "Новая нота"
+</div>
 
-<div class="buttons" id="answers"></div>
+<div id="score">
+    0 / 0
+</div>
+
+<div id="answers"></div>
 
 <script>
-const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-const SOLFEGE = ["do","re","mi","fa","sol","la","ti"];
+
+const NOTES = [
+    "C","C#","D","D#","E","F",
+    "F#","G","G#","A","A#","B"
+];
+
+const SOLFEGE = [
+    "do","re","mi","fa","sol","la","ti"
+];
 
 const MAJOR = [0,2,4,5,7,9,11];
 const MINOR = [0,2,3,5,7,8,10];
 
 let currentNote = null;
+
 let total = 0;
 let correct = 0;
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playFreq(freq){
+
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
-    osc.frequency.value = freq;
     osc.type = "sine";
+    osc.frequency.value = freq;
 
     osc.connect(gain);
     gain.connect(audioCtx.destination);
 
-    osc.start();
     gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioCtx.currentTime + 0.6
+    );
 
-    osc.stop(audioCtx.currentTime + 0.5);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.6);
 }
 
-function getFreq(note){
-    const A4 = 440;
+function noteToMidi(note, octave){
+
     const index = NOTES.indexOf(note);
-    const semitone = index - 9;
-    return A4 * Math.pow(2, semitone/12);
+
+    return (octave + 1) * 12 + index;
+}
+
+function midiToFreq(midi){
+
+    return 440 * Math.pow(
+        2,
+        (midi - 69) / 12
+    );
 }
 
 function buildScale(){
+
     const root = document.getElementById("root").value;
-    const type = document.getElementById("scale").value;
+
+    const scaleType =
+        document.getElementById("scale").value;
 
     const rootIndex = NOTES.indexOf(root);
-    const steps = type === "major" ? MAJOR : MINOR;
 
-    return steps.map(s => NOTES[(rootIndex + s) % 12]);
+    const steps =
+        scaleType === "major"
+        ? MAJOR
+        : MINOR;
+
+    return steps.map(
+        s => NOTES[(rootIndex + s) % 12]
+    );
+}
+
+function buildExtendedScale(){
+
+    const scale = buildScale();
+
+    const root =
+        document.getElementById("root").value;
+
+    const rootMidi = noteToMidi(root, 4);
+
+    const lowerLimit = rootMidi - 12;
+    const upperLimit = rootMidi + 12;
+
+    const result = [];
+
+    for(let midi = lowerLimit; midi <= upperLimit; midi++){
+
+        const noteName =
+            NOTES[midi % 12];
+
+        const chromatic =
+            document.getElementById("chromaticToggle").checked;
+
+        if(chromatic){
+
+            result.push(midi);
+
+        }else{
+
+            if(scale.includes(noteName)){
+
+                result.push(midi);
+            }
+        }
+    }
+
+    return result;
 }
 
 function playTonic(){
+
     const scale = buildScale();
-    const triad = [scale[0], scale[2], scale[4]];
-    const pattern = [triad[0], triad[1], triad[2], triad[1], triad[0]];
+
+    const rootMidi =
+        noteToMidi(scale[0], 4);
+
+    const thirdMidi =
+        noteToMidi(scale[2], 4);
+
+    const fifthMidi =
+        noteToMidi(scale[4], 4);
+
+    const pattern = [
+        rootMidi,
+        thirdMidi,
+        fifthMidi,
+        thirdMidi,
+        rootMidi
+    ];
 
     let i = 0;
+
     function playNext(){
+
         if(i >= pattern.length) return;
-        playFreq(getFreq(pattern[i]));
+
+        playFreq(
+            midiToFreq(pattern[i])
+        );
+
         i++;
+
         setTimeout(playNext, 500);
     }
+
     playNext();
 }
 
 function newNote(){
-    const scale = buildScale();
-    currentNote = scale[Math.floor(Math.random()*scale.length)];
+
+    const scale = buildExtendedScale();
+
+    currentNote =
+        scale[
+            Math.floor(Math.random() * scale.length)
+        ];
 
     total++;
+
     updateScore();
 
-    playFreq(getFreq(currentNote));
-    document.getElementById("result").innerText = "Что это за ступень?";
+    playFreq(
+        midiToFreq(currentNote)
+    );
+
+    document.getElementById("result").innerText =
+        "Что это за нота?";
 }
 
 function replay(){
-    if(currentNote){
-        playFreq(getFreq(currentNote));
+
+    if(currentNote !== null){
+
+        playFreq(
+            midiToFreq(currentNote)
+        );
     }
 }
 
 function checkAnswer(index){
-    if(!currentNote) return;
 
-    const scale = buildScale();
-    const correctIndex = scale.indexOf(currentNote);
+    if(currentNote === null) return;
+
+    const chromatic =
+        document.getElementById("chromaticToggle").checked;
+
+    const noteName =
+        NOTES[currentNote % 12];
+
+    let correctIndex;
+
+    if(chromatic){
+
+        correctIndex =
+            NOTES.indexOf(noteName);
+
+    }else{
+
+        const scale = buildScale();
+
+        correctIndex =
+            scale.indexOf(noteName);
+    }
 
     if(index === correctIndex){
+
         correct++;
-        document.getElementById("result").innerText = "✅ Верно!";
-    } else {
+
         document.getElementById("result").innerText =
-            "❌ Неверно. Это было " + SOLFEGE[correctIndex];
+            "✅ Верно!";
+
+    }else{
+
+        const correctName =
+            chromatic
+            ? NOTES[correctIndex]
+            : SOLFEGE[correctIndex];
+
+        document.getElementById("result").innerText =
+            "❌ Неверно. Это было " + correctName;
     }
 
     updateScore();
 }
 
 function updateScore(){
-    let text = total === 0 ? "0 / 0" :
-        `${correct} / ${total} (${Math.floor(correct/total*100)}%)`;
 
-    document.getElementById("score").innerText = text;
+    let text;
+
+    if(total === 0){
+
+        text = "0 / 0";
+
+    }else{
+
+        const percent =
+            Math.floor(correct / total * 100);
+
+        text =
+            `${correct} / ${total} (${percent}%)`;
+    }
+
+    document.getElementById("score").innerText =
+        text;
 }
 
-// --- UI init ---
-const rootSelect = document.getElementById("root");
-NOTES.forEach(n => {
-    const opt = document.createElement("option");
-    opt.value = n;
-    opt.innerText = n;
+function rebuildButtons(){
+
+    const chromatic =
+        document.getElementById("chromaticToggle").checked;
+
+    const answers =
+        document.getElementById("answers");
+
+    answers.innerHTML = "";
+
+    const labels =
+        chromatic
+        ? NOTES
+        : SOLFEGE;
+
+    labels.forEach((name, i) => {
+
+        const btn =
+            document.createElement("button");
+
+        btn.innerText = name;
+
+        btn.onclick = () => checkAnswer(i);
+
+        answers.appendChild(btn);
+    });
+}
+
+const rootSelect =
+    document.getElementById("root");
+
+NOTES.forEach(note => {
+
+    const opt =
+        document.createElement("option");
+
+    opt.value = note;
+    opt.innerText = note;
+
     rootSelect.appendChild(opt);
 });
+
 rootSelect.value = "C";
 
-const answersDiv = document.getElementById("answers");
-SOLFEGE.forEach((name, i) => {
-    const btn = document.createElement("button");
-    btn.innerText = name;
-    btn.onclick = () => checkAnswer(i);
-    answersDiv.appendChild(btn);
-});
+document
+.getElementById("chromaticToggle")
+.addEventListener(
+    "change",
+    rebuildButtons
+);
+
+rebuildButtons();
+
 </script>
 
 </body>
