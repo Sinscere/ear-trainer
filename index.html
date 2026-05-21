@@ -220,27 +220,29 @@ function playTonic(){
     const scaleType =
         document.getElementById("scale").value;
 
+    // Всегда строим от 4 октавы
     const rootMidi =
         noteToMidi(root, 4);
 
     let thirdInterval;
-    let fifthInterval = 7;
 
     if(scaleType === "major"){
-
         thirdInterval = 4;
-
     }else{
-
         thirdInterval = 3;
     }
 
+    // Явно строим вверх
+    const rootNote = rootMidi;
+    const thirdNote = rootMidi + thirdInterval;
+    const fifthNote = rootMidi + 7;
+
     const pattern = [
-        rootMidi,
-        rootMidi + thirdInterval,
-        rootMidi + fifthInterval,
-        rootMidi + thirdInterval,
-        rootMidi
+        rootNote,
+        thirdNote,
+        fifthNote,
+        thirdNote,
+        rootNote
     ];
 
     let i = 0;
@@ -260,7 +262,7 @@ function playTonic(){
 
     playNext();
 }
-
+    
 function newNote(){
 
     if(generatedScale.length === 0){
