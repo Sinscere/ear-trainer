@@ -108,7 +108,10 @@ let currentNote = null;
 let total = 0;
 let correct = 0;
 
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let generatedScale = [];
+
+const audioCtx =
+    new (window.AudioContext || window.webkitAudioContext)();
 
 function playFreq(freq){
 
@@ -121,21 +124,19 @@ function playFreq(freq){
     osc.connect(gain);
     gain.connect(audioCtx.destination);
 
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.setValueAtTime(
+        0.3,
+        audioCtx.currentTime
+    );
+
     gain.gain.exponentialRampToValueAtTime(
         0.001,
         audioCtx.currentTime + 0.6
     );
 
     osc.start();
+
     osc.stop(audioCtx.currentTime + 0.6);
-}
-
-function noteToMidi(note, octave){
-
-    const index = NOTES.indexOf(note);
-
-    return (octave + 1) * 12 + index;
 }
 
 function midiToFreq(midi){
@@ -146,81 +147,99 @@ function midiToFreq(midi){
     );
 }
 
-function buildScale(){
+function noteToMidi(note, octave){
 
-    const root = document.getElementById("root").value;
-
-    const scaleType =
-        document.getElementById("scale").value;
-
-    const rootIndex = NOTES.indexOf(root);
-
-    const steps =
-        scaleType === "major"
-        ? MAJOR
-        : MINOR;
-
-    return steps.map(
-        s => NOTES[(rootIndex + s) % 12]
-    );
+    return (octave + 1) * 12 +
+        NOTES.indexOf(note);
 }
 
-function buildExtendedScale(){
-
-    const scale = buildScale();
+function buildScaleNames(){
 
     const root =
         document.getElementById("root").value;
 
-    const rootMidi = noteToMidi(root, 4);
+    const scaleType =
+        document.getElementById("scale").value;
 
-    const lowerLimit = rootMidi - 12;
-    const upperLimit = rootMidi + 12;
+    const rootIndex =
+        NOTES.indexOf(root);
 
-    const result = [];
+    const pattern =
+        scaleType === "major"
+        ? MAJOR
+        : MINOR;
 
-    for(let midi = lowerLimit; midi <= upperLimit; midi++){
+    return pattern.map(
+        s => NOTES[(rootIndex + s) % 12]
+    );
+}
+
+function generateScale(){
+
+    generatedScale = [];
+
+    const root =
+        document.getElementById("root").value;
+
+    const scaleNames =
+        buildScaleNames();
+
+    const chromatic =
+        document.getElementById("chromaticToggle").checked;
+
+    const startMidi =
+        noteToMidi(root, 3);
+
+    const endMidi =
+        noteToMidi(root, 6);
+
+    for(let midi = startMidi; midi <= endMidi; midi++){
 
         const noteName =
             NOTES[midi % 12];
 
-        const chromatic =
-            document.getElementById("chromaticToggle").checked;
-
         if(chromatic){
 
-            result.push(midi);
+            generatedScale.push(midi);
 
         }else{
 
-            if(scale.includes(noteName)){
+            if(scaleNames.includes(noteName)){
 
-                result.push(midi);
+                generatedScale.push(midi);
             }
         }
     }
-
-    return result;
 }
 
 function playTonic(){
 
-    const scale = buildScale();
+    const root =
+        document.getElementById("root").value;
+
+    const scaleType =
+        document.getElementById("scale").value;
 
     const rootMidi =
-        noteToMidi(scale[0], 4);
+        noteToMidi(root, 4);
 
-    const thirdMidi =
-        noteToMidi(scale[2], 4);
+    let thirdInterval;
+    let fifthInterval = 7;
 
-    const fifthMidi =
-        noteToMidi(scale[4], 4);
+    if(scaleType === "major"){
+
+        thirdInterval = 4;
+
+    }else{
+
+        thirdInterval = 3;
+    }
 
     const pattern = [
         rootMidi,
-        thirdMidi,
-        fifthMidi,
-        thirdMidi,
+        rootMidi + thirdInterval,
+        rootMidi + fifthInterval,
+        rootMidi + thirdInterval,
         rootMidi
     ];
 
@@ -244,11 +263,17 @@ function playTonic(){
 
 function newNote(){
 
-    const scale = buildExtendedScale();
+    if(generatedScale.length === 0){
+
+        generateScale();
+    }
 
     currentNote =
-        scale[
-            Math.floor(Math.random() * scale.length)
+        generatedScale[
+            Math.floor(
+                Math.random() *
+                generatedScale.length
+            )
         ];
 
     total++;
@@ -292,7 +317,8 @@ function checkAnswer(index){
 
     }else{
 
-        const scale = buildScale();
+        const scale =
+            buildScaleNames();
 
         correctIndex =
             scale.indexOf(noteName);
@@ -313,7 +339,8 @@ function checkAnswer(index){
             : SOLFEGE[correctIndex];
 
         document.getElementById("result").innerText =
-            "❌ Неверно. Это было " + correctName;
+            "❌ Неверно. Это было " +
+            correctName;
     }
 
     updateScore();
@@ -330,7 +357,9 @@ function updateScore(){
     }else{
 
         const percent =
-            Math.floor(correct / total * 100);
+            Math.floor(
+                correct / total * 100
+            );
 
         text =
             `${correct} / ${total} (${percent}%)`;
@@ -362,10 +391,13 @@ function rebuildButtons(){
 
         btn.innerText = name;
 
-        btn.onclick = () => checkAnswer(i);
+        btn.onclick =
+            () => checkAnswer(i);
 
         answers.appendChild(btn);
     });
+
+    generateScale();
 }
 
 const rootSelect =
@@ -391,7 +423,22 @@ document
     rebuildButtons
 );
 
+document
+.getElementById("root")
+.addEventListener(
+    "change",
+    generateScale
+);
+
+document
+.getElementById("scale")
+.addEventListener(
+    "change",
+    generateScale
+);
+
 rebuildButtons();
+generateScale();
 
 </script>
 
